@@ -1,127 +1,45 @@
-if game.CoreGui:FindFirstChild("GHOST_PASS_MENU") then return end
+-- Roblox Script Executor with Secondary Plan (Google Tab)
 
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local HttpService = game:GetService("HttpService")
-local MarketplaceService = game:GetService("MarketplaceService")
-local Lighting = game:GetService("Lighting")
+-- First, grab the Roblox environment
+local player = game.Players.LocalPlayer
+local mouse = player:GetMouse()
 
--- Tela principal
-local gui = Instance.new("ScreenGui", game.CoreGui)
-gui.Name = "GHOST_PASS_MENU"
-gui.ResetOnSpawn = false
-gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+-- Create a GUI that simulates a second-tab, hidden in plain sight
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = player.PlayerGui
+screenGui.Name = "SecondPlanTab"
 
--- Blur
-local blur = Instance.new("BlurEffect", Lighting)
-blur.Size = 24
-blur.Name = "GhostBlur"
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 0, 0, 0)  -- Initially hide the frame
+frame.Position = UDim2.new(0, 100, 0, 100)
+frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+frame.BackgroundTransparency = 1  -- Invisible at first
+frame.Parent = screenGui
 
--- Janela principal
-local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 400, 0, 500)
-frame.Position = UDim2.new(0.5, -200, 0.5, -250)
-frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-frame.BackgroundTransparency = 0.2
+-- This part is the tricky part: Create the hidden "web browser"
+local uiFrame = Instance.new("Frame")
+uiFrame.Size = UDim2.new(1, 0, 1, 0)  -- Take up the whole screen
+uiFrame.BackgroundTransparency = 1  -- Full transparency
+uiFrame.Parent = frame
 
-local uicorner = Instance.new("UICorner", frame)
-uicorner.CornerRadius = UDim.new(0, 16)
+-- You would typically need a browser engine here, but Roblox doesn't support browsers natively
+-- However, we simulate it with a basic image (you can replace this with actual URL redirects if the executor allows)
+local webView = Instance.new("ImageLabel")
+webView.Size = UDim2.new(1, 0, 1, 0)
+webView.Image = "http://www.google.com/favicon.ico"  -- Fake as an example
+webView.BackgroundTransparency = 1
+webView.Parent = uiFrame
 
-local uiStroke = Instance.new("UIStroke", frame)
-uiStroke.Color = Color3.fromRGB(148, 0, 211)
-uiStroke.Thickness = 2
-uiStroke.Transparency = 0.1
-
--- Título
-local title = Instance.new("TextLabel", frame)
-title.Size = UDim2.new(1, 0, 0, 50)
-title.Text = "GHOST DARK - Gamepasses"
-title.Font = Enum.Font.GothamBlack
-title.TextScaled = true
-title.TextColor3 = Color3.fromRGB(0, 255, 127)
-title.BackgroundTransparency = 1
-
--- Scrolling
-local scroll = Instance.new("ScrollingFrame", frame)
-scroll.Size = UDim2.new(1, -10, 1, -60)
-scroll.Position = UDim2.new(0, 5, 0, 55)
-scroll.CanvasSize = UDim2.new(0, 0, 10, 0)
-scroll.ScrollBarThickness = 6
-scroll.BackgroundTransparency = 1
-
--- Deep Hook Universal
-local oldNamecall
-oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-    local args = {...}
-    local method = getnamecallmethod()
-
-    if tostring(self):lower():match("userownsgamepassasync") and method == "InvokeServer" then
-        return true
+-- Make it pop into existence once the player presses a certain key
+mouse.KeyDown:Connect(function(key)
+    if key == "g" then
+        -- When 'g' is pressed, reveal the tab
+        frame.Size = UDim2.new(0, 600, 0, 400)
+        frame.BackgroundTransparency = 0.5  -- Make it semi-visible for the user to notice
     end
-    return oldNamecall(self, ...)
 end)
 
--- Função para simular compra
-local function forceOwn(gamepassId)
-    local mt = getrawmetatable(game)
-    setreadonly(mt, false)
-    local __namecall = mt.__namecall
-
-    mt.__namecall = newcclosure(function(self, ...)
-        local method = getnamecallmethod()
-        local args = {...}
-        if tostring(self):lower():match("userownsgamepassasync") and method == "InvokeServer" then
-            if args[2] == gamepassId then
-                return true
-            end
-        end
-        return __namecall(self, ...)
-    end)
-end
-
--- Função para criar botão
-local function createButton(name, id)
-    local btn = Instance.new("TextButton", scroll)
-    btn.Size = UDim2.new(1, -20, 0, 40)
-    btn.Position = UDim2.new(0, 10, 0, (#scroll:GetChildren() * 45))
-    btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Text = name
-    btn.Font = Enum.Font.Gotham
-    btn.TextScaled = true
-    btn.BorderSizePixel = 0
-    local c = Instance.new("UICorner", btn)
-    c.CornerRadius = UDim.new(0, 6)
-
-    btn.MouseButton1Click:Connect(function()
-        forceOwn(id)
-        btn.BackgroundColor3 = Color3.fromRGB(34, 139, 34)
-        btn.Text = name .. " [Ativado!]"
-    end)
-end
-
--- GET API Gamepasses por ID do jogo
-local function getGamepasses()
-    local placeId = game.PlaceId
-    local success, response = pcall(function()
-        return game:HttpGet("https://games.roblox.com/v1/games/"..placeId.."/game-passes")
-    end)
-
-    if success then
-        local data = HttpService:JSONDecode(response)
-        for _, gpass in pairs(data.data or {}) do
-            createButton(gpass.name or "Gamepass", gpass.id)
-        end
-    else
-        local warnlbl = Instance.new("TextLabel", frame)
-        warnlbl.Text = "Não foi possível carregar Gamepasses."
-        warnlbl.Size = UDim2.new(1, 0, 0, 50)
-        warnlbl.Position = UDim2.new(0, 0, 1, -50)
-        warnlbl.TextColor3 = Color3.fromRGB(255, 50, 50)
-        warnlbl.BackgroundTransparency = 1
-        warnlbl.Font = Enum.Font.GothamBold
-        warnlbl.TextScaled = true
-    end
-end
-
-getGamepasses()
+-- Add a timer to make it automatically go back to the shadows after 10 seconds
+wait(10)
+frame.Size = UDim2.new(0, 0, 0, 0)  -- Hide the frame
+frame.BackgroundTransparency = 1  -- Set it back to invisible
